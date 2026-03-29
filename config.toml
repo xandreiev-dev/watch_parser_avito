@@ -1,0 +1,35 @@
+[avito]
+tg_token = ""
+tg_chat_id = []
+vk_token = ""
+vk_user_id = []
+urls = [
+    "https://www.avito.ru/moskva_i_mo/chasy_i_ukrasheniya/chasy/smart/smart_chasi-ASgBAgICA0TQAYYGhNgR_paHA4jYEY6XhwM?cd=1&f=ASgBAgECBkTQAYYG5rwN8tE08ooOpIKUAeSODpKfzgGE2BH~locDiNgRjpeHAwFFxpoMGXsiZnJvbSI6MTAwMCwidG8iOjE1MDAwMH0&localPriority=1&q=watch",
+    "https://www.avito.ru/moskva_i_mo/chasy_i_ukrasheniya/chasy/smart/smart_chasi-ASgBAgICA0TQAYYGhNgR_paHA4jYEY6XhwM?cd=1&f=ASgBAgECBkTQAYYG5rwN8tE08ooOpIKUAeSODpqbzgGE2BH~locDiNgRjpeHAwFFxpoMGXsiZnJvbSI6MTAwMCwidG8iOjE1MDAwMH0&localPriority=1&q=watch",
+    "https://www.avito.ru/moskva_i_mo/chasy_i_ukrasheniya/chasy/smart/smart_chasi-ASgBAgICA0TQAYYGhNgR_paHA4jYEY6XhwM?cd=1&f=ASgBAgECBkTQAYYG5rwN8tE08ooOpIKUAeSODtKlzgGE2BH~locDiNgRjpeHAwFFxpoMGXsiZnJvbSI6MTAwMCwidG8iOjE1MDAwMH0&localPriority=1&q=watch",
+]
+count = 20
+keys_word_white_list = []
+keys_word_black_list = []
+seller_black_list = []
+max_price = 99999999
+min_price = 0
+geo = ""
+proxy_string = "Uk5eZy:ApgAM8AG2At3@mproxy.site:14085"
+proxy_change_url = "https://changeip.mobileproxy.space/?proxy_key=a64ca89e7213f9d0a0fb3ec9e1e5a737"
+pause_general = 1
+pause_between_links = 4
+max_age = 0
+max_count_of_retry = 5
+ignore_reserv = true
+ignore_promotion = false
+one_time_start = true
+one_file_for_link = false
+parse_views = false
+save_xlsx = true
+use_webdriver = false
+use_bypass_api = false
+cookies_api_key = ""
+use_own_cookies = false
+parse_phone = false
+proxy_notifier = ""
