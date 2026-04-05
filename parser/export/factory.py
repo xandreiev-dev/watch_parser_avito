@@ -11,11 +11,12 @@ def build_result_storage(
     config: AvitoConfig,
     *,
     link_index: int | None = None,
+    batch_name: str | None = None,
 ) -> ResultStorage:
     storages: list[ResultStorage] = []
 
     if config.save_xlsx:
-        file_path = _build_excel_path(config, link_index)
+        file_path = _build_excel_path(config, link_index=link_index, batch_name=batch_name)
         storages.append(ExcelStorage(file_path))
 
     if not storages:
@@ -24,7 +25,11 @@ def build_result_storage(
     return CompositeResultStorage(storages)
 
 
-def _build_excel_path(config: AvitoConfig, link_index: int | None) -> Path:
+def _build_excel_path(
+    config: AvitoConfig,
+    link_index: int | None = None,
+    batch_name: str | None = None,
+) -> Path:
     base_dir = Path(config.output_dir)
     base_dir.mkdir(parents=True, exist_ok=True)
 
@@ -34,5 +39,9 @@ def _build_excel_path(config: AvitoConfig, link_index: int | None) -> Path:
         # отдельный файл для каждой ссылки
         return base_dir / f"avito_link_{link_index + 1}_{ts}.xlsx"
 
-    # один файл для всего парсинга
+    if batch_name:
+        # отдельный итоговый файл для batch new / used
+        return base_dir / f"Avito_ru_{batch_name}.xlsx"
+
+    # дефолтный файл, если batch_name не передали
     return base_dir / "avito.xlsx"

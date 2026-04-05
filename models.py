@@ -24,6 +24,7 @@ class AddressDetailed(BaseModel):
 
 
 class PriceDetailed(BaseModel):
+    """Подробная структура цены объявления."""
     enabled: bool
     fullString: str
     hasValue: bool
@@ -92,12 +93,14 @@ class IvaComponent(BaseModel):
 
 
 class IvaStep(BaseModel):
+    """Шаг блока IVA, где часто лежат служебные данные объявления."""
     componentData: IvaComponent
     payload: Optional[Dict[str, Any]] = None
     default: bool
 
 
 class Item(BaseModel):
+    """Модель одного объявления Avito."""
     id: int | dict | None = None
     categoryId: int | dict | None = None
     locationId: int | dict | None = None
@@ -148,7 +151,10 @@ class Item(BaseModel):
     total_views: int | None = None
     today_views: int | None = None
     phone: str | None = None
+    rating: dict | None = None
+    delivery: str | None = None
 
 
 class ItemsResponse(BaseModel):
+    """Ответ каталога Avito со списком объявлений."""
     items: List[Item]

@@ -3,10 +3,54 @@ tg_token = ""
 tg_chat_id = []
 vk_token = ""
 vk_user_id = []
-urls = [
+new_urls = [
+    # Garmin new
     "https://www.avito.ru/moskva_i_mo/chasy_i_ukrasheniya/chasy/smart/smart_chasi-ASgBAgICA0TQAYYGhNgR_paHA4jYEY6XhwM?cd=1&f=ASgBAgECBkTQAYYG5rwN8tE08ooOpIKUAeSODpKfzgGE2BH~locDiNgRjpeHAwFFxpoMGXsiZnJvbSI6MTAwMCwidG8iOjE1MDAwMH0&localPriority=1&q=watch",
+    # Apple Watch new
     "https://www.avito.ru/moskva_i_mo/chasy_i_ukrasheniya/chasy/smart/smart_chasi-ASgBAgICA0TQAYYGhNgR_paHA4jYEY6XhwM?cd=1&f=ASgBAgECBkTQAYYG5rwN8tE08ooOpIKUAeSODpqbzgGE2BH~locDiNgRjpeHAwFFxpoMGXsiZnJvbSI6MTAwMCwidG8iOjE1MDAwMH0&localPriority=1&q=watch",
+    # Samsung Galaxy Watch new
     "https://www.avito.ru/moskva_i_mo/chasy_i_ukrasheniya/chasy/smart/smart_chasi-ASgBAgICA0TQAYYGhNgR_paHA4jYEY6XhwM?cd=1&f=ASgBAgECBkTQAYYG5rwN8tE08ooOpIKUAeSODtKlzgGE2BH~locDiNgRjpeHAwFFxpoMGXsiZnJvbSI6MTAwMCwidG8iOjE1MDAwMH0&localPriority=1&q=watch",
+    # Huawei Watch new
+    "https://www.avito.ru/moskva_i_mo/chasy_i_ukrasheniya/chasy/smart/huawei-ASgBAgICA0TQAYYG5I4OgqDOAYTYEf6WhwM?cd=1&f=ASgBAQECBUTQAYYG5rwN8tE08ooOpIKUAeSODoKgzgGE2BH~locDAUCI2BEklJeHA46XhwMBRcaaDBl7ImZyb20iOjEwMDAsInRvIjoxNTAwMDB9&localPriority=1&q=watch",
+    # Xiaomi Watch / Redmi Watch new
+    "https://www.avito.ru/moskva_i_mo/chasy_i_ukrasheniya/chasy/smart/xiaomi-ASgBAgICA0TQAYYG5I4OhqjOAYTYEf6WhwM?cd=1&f=ASgBAQECBUTQAYYG5rwN8tE08ooOpIKUAeSODoaozgGE2BH~locDAUCI2BEklJeHA46XhwMBRcaaDBl7ImZyb20iOjEwMDAsInRvIjoxNTAwMDB9&localPriority=1&q=watch",
+    # Oppo Watch new
+    "https://www.avito.ru/moskva_i_mo/chasy_i_ukrasheniya?cd=1&f=ASgBAgICAUTmvA3y0TQ&localPriority=1&q=oppo+watch",
+    # Vivo Watch new
+    "https://www.avito.ru/moskva_i_mo/chasy_i_ukrasheniya/chasy/smart/smart_chasi-ASgBAgICA0TQAYYGhNgR_paHA4jYEY6XhwM?cd=1&f=ASgBAgECBkTQAYYG5rwN8tE08ooOpIKUAeSODvzz0xCE2BH~locDiNgRjpeHAwFFxpoMGXsiZnJvbSI6MTAwMCwidG8iOjE1MDAwMH0&localPriority=0&q=watch",
+    # Honor Watch new
+    "https://www.avito.ru/moskva_i_mo/chasy_i_ukrasheniya/chasy/smart/honor-ASgBAgICA0TQAYYG5I4OjryMFYTYEf6WhwM?cd=1&f=ASgBAQECBUTQAYYG5rwN8tE08ooOpIKUAeSODo68jBWE2BH~locDAUCI2BEklJeHA46XhwMBRcaaDBl7ImZyb20iOjEwMDAsInRvIjoxNTAwMDB9&localPriority=1&q=watch",
+    # Google Pixel Watch new
+    "https://www.avito.ru/moskva_i_mo/chasy_i_ukrasheniya/chasy/smart-ASgBAgICAkTQAYYGhNgR_paHAw?cd=1&f=ASgBAQECBETQAYYG5rwN8tE08ooOpIKUAYTYEf6WhwMCQOSODiTe5tMQ9PWhFYjYESSUl4cDjpeHAwFFxpoMGXsiZnJvbSI6MTAwMCwidG8iOjE1MDAwMH0&localPriority=1&q=watch",
+    # OnePlus Watch new
+    "https://www.avito.ru/moskva_i_mo/chasy_i_ukrasheniya/chasy/smart/oneplus-ASgBAgICA0TQAYYG5I4O0PuxFYTYEf6WhwM?cd=1&f=ASgBAQECBUTQAYYG5rwN8tE08ooOpIKUAeSODtD7sRWE2BH~locDAUCI2BEklJeHA46XhwMBRcaaDBl7ImZyb20iOjEwMDAsInRvIjoxNTAwMDB9&localPriority=1&q=watch",
+    # Amazfit new
+    "https://www.avito.ru/moskva_i_mo/chasy_i_ukrasheniya/chasy/smart/amazfit-ASgBAgICA0TQAYYG5I4O_qWWFYTYEf6WhwM?cd=1&f=ASgBAQECBUTQAYYG5rwN8tE08ooOpIKUAeSODv6llhWE2BH~locDAUCI2BEklJeHA46XhwMBRcaaDBl7ImZyb20iOjEwMDAsInRvIjoxNTAwMDB9&localPriority=1&q=watch",
+]
+used_urls = [    
+    # Garmin used
+    "https://www.avito.ru/moskva_i_mo/chasy_i_ukrasheniya/chasy/smart/smart_chasi-ASgBAgICA0TQAYYGhNgR_paHA4jYEY6XhwM?cd=1&f=ASgBAgECBkTQAYYG5rwN9NE08ooOpIKUAeSODpKfzgGE2BH~locDiNgRjpeHAwFFxpoMGXsiZnJvbSI6MTAwMCwidG8iOjE1MDAwMH0&localPriority=0&q=watch",   
+    # Apple Watch used
+    "https://www.avito.ru/moskva_i_mo/chasy_i_ukrasheniya/chasy/smart/smart_chasi-ASgBAgICA0TQAYYGhNgR_paHA4jYEY6XhwM?cd=1&f=ASgBAgECBkTQAYYG5rwN9NE08ooOpIKUAeSODpqbzgGE2BH~locDiNgRjpeHAwFFxpoMGXsiZnJvbSI6MTAwMCwidG8iOjE1MDAwMH0&localPriority=0&q=watch",
+    # Samsung Galaxy Watch used
+    "https://www.avito.ru/moskva_i_mo/chasy_i_ukrasheniya/chasy/smart/smart_chasi-ASgBAgICA0TQAYYGhNgR_paHA4jYEY6XhwM?cd=1&f=ASgBAgECBkTQAYYG5rwN9NE08ooOpIKUAeSODtKlzgGE2BH~locDiNgRjpeHAwFFxpoMGXsiZnJvbSI6MTAwMCwidG8iOjE1MDAwMH0&localPriority=0&q=watch",
+    # Huawei Watch used
+    "https://www.avito.ru/moskva_i_mo/chasy_i_ukrasheniya/chasy/smart/smart_chasi-ASgBAgICA0TQAYYGhNgR_paHA4jYEY6XhwM?cd=1&f=ASgBAgECBkTQAYYG5rwN9NE08ooOpIKUAeSODoKgzgGE2BH~locDiNgRjpeHAwFFxpoMGXsiZnJvbSI6MTAwMCwidG8iOjE1MDAwMH0&localPriority=0&q=watch",
+    # Xiaomi Watch / Redmi Watch used
+    "https://www.avito.ru/moskva_i_mo/chasy_i_ukrasheniya/chasy/smart/smart_chasi-ASgBAgICA0TQAYYGhNgR_paHA4jYEY6XhwM?cd=1&f=ASgBAgECBkTQAYYG5rwN9NE08ooOpIKUAeSODoaozgGE2BH~locDiNgRjpeHAwFFxpoMGXsiZnJvbSI6MTAwMCwidG8iOjE1MDAwMH0&localPriority=0&q=watch",
+    # Oppo Watch used
+    "https://www.avito.ru/moskva_i_mo/chasy_i_ukrasheniya/chasy/smart/smart_chasi-ASgBAgICA0TQAYYGhNgR_paHA4jYEY6XhwM?f=ASgBAgICBUTQAYYG5rwN9NE08ooOpIKUAYTYEf6WhwOI2BGOl4cD&localPriority=0&q=Oppo+Watch",
+    # Vivo Watch used
+    "https://www.avito.ru/moskva_i_mo/chasy_i_ukrasheniya/chasy/smart/smart_chasi-ASgBAgICA0TQAYYGhNgR_paHA4jYEY6XhwM?cd=1&f=ASgBAgECBkTQAYYG5rwN9NE08ooOpIKUAeSODvzz0xCE2BH~locDiNgRjpeHAwFFxpoMGXsiZnJvbSI6MTAwMCwidG8iOjE1MDAwMH0&localPriority=0&q=watch",
+    # Honor Watch used
+    "https://www.avito.ru/moskva_i_mo/chasy_i_ukrasheniya/chasy/smart/smart_chasi-ASgBAgICA0TQAYYGhNgR_paHA4jYEY6XhwM?cd=1&f=ASgBAgECBkTQAYYG5rwN9NE08ooOpIKUAeSODo68jBWE2BH~locDiNgRjpeHAwFFxpoMGXsiZnJvbSI6MTAwMCwidG8iOjE1MDAwMH0&localPriority=0&q=watch",
+    # Google Pixel Watch used
+    "https://www.avito.ru/moskva_i_mo/chasy_i_ukrasheniya/chasy/smart/smart_chasi-ASgBAgICA0TQAYYGhNgR_paHA4jYEY6XhwM?cd=1&f=ASgBAgECBkTQAYYG5rwN9NE08ooOpIKUAeSODvT1oRWE2BH~locDiNgRjpeHAwFFxpoMGXsiZnJvbSI6MTAwMCwidG8iOjE1MDAwMH0&localPriority=0&q=watch",
+    # OnePlus Watch used
+    "https://www.avito.ru/moskva_i_mo/chasy_i_ukrasheniya/chasy/smart/smart_chasi-ASgBAgICA0TQAYYGhNgR_paHA4jYEY6XhwM?cd=1&f=ASgBAgECBkTQAYYG5rwN9NE08ooOpIKUAeSODtD7sRWE2BH~locDiNgRjpeHAwFFxpoMGXsiZnJvbSI6MTAwMCwidG8iOjE1MDAwMH0&localPriority=0&q=watch",
+    # Amazfit used
+    "https://www.avito.ru/moskva_i_mo/chasy_i_ukrasheniya/chasy/smart/smart_chasi-ASgBAgICA0TQAYYGhNgR_paHA4jYEY6XhwM?cd=1&f=ASgBAgECBkTQAYYG5rwN9NE08ooOpIKUAeSODv6llhWE2BH~locDiNgRjpeHAwFFxpoMGXsiZnJvbSI6MTAwMCwidG8iOjE1MDAwMH0&localPriority=0&q=watch",
+
 ]
 count = 20
 keys_word_white_list = []
@@ -15,8 +59,8 @@ seller_black_list = []
 max_price = 99999999
 min_price = 0
 geo = ""
-proxy_string = "Uk5eZy:ApgAM8AG2At3@mproxy.site:14085"
-proxy_change_url = "https://changeip.mobileproxy.space/?proxy_key=a64ca89e7213f9d0a0fb3ec9e1e5a737"
+proxy_string = ""
+proxy_change_url = ""
 pause_general = 1
 pause_between_links = 4
 max_age = 0
@@ -33,3 +77,6 @@ cookies_api_key = ""
 use_own_cookies = false
 parse_phone = false
 proxy_notifier = ""
+proxy_rotation_limit = 15
+proxy_rotation_cooldown = 10
+max_pages = 0

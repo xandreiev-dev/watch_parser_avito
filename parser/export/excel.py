@@ -36,15 +36,9 @@ class ExcelStorage(ResultStorage):
         "Координаты",
         "Изображения",
         "Поднято",
-        "Просмотры (всего)",
-        "Просмотры (сегодня)",
-        "Телефон",
-        "Бренд",
-        "Модель",
-        "Состояние",
-        "Размер",
-        "Цвет",
-        "Гарантия",
+        "Звезды",
+        "Отзывы",
+        "Доставка",
     ]
 
     def __init__(self, file_path: Path):
@@ -148,15 +142,9 @@ class ExcelStorage(ResultStorage):
                     self.excel_safe(self._get_item_coords(ad)),
                     self.excel_safe(";".join(images_urls)),
                     "Да" if ad.isPromotion else "Нет",
-                    ad.total_views or "",
-                    ad.today_views or "",
-                    self.excel_safe(ad.phone or ""),
-                    self.excel_safe(brand),
-                    self.excel_safe(model),
-                    self.excel_safe(condition),
-                    self.excel_safe(size),
-                    self.excel_safe(color),
-                    self.excel_safe(warranty),
+                    ad.rating.get("score") if ad.rating else "",
+                    ad.rating.get("summary") if ad.rating else "",  
+                    self.excel_safe(ad.delivery if getattr(ad, "delivery", None) else ""),
                 ]
 
                 sheet.append(row)

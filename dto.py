@@ -5,12 +5,14 @@ from typing import List, Optional
 
 @dataclass
 class Proxy:
+    """Конфиг мобильного прокси."""
     proxy_string: str
     change_ip_link: str
 
 
 @dataclass
 class ProxySplit:
+    """Разобранные части прокси для дальнейшего использования."""
     ip_port: str
     login: str
     password: str
@@ -19,7 +21,9 @@ class ProxySplit:
 
 @dataclass
 class AvitoConfig:
-    urls: List[str]
+    """Основной конфиг парсера Avito."""
+    new_urls: list[str]
+    used_urls: list[str]
     proxy_string: Optional[str] = None
     proxy_change_url: Optional[str] = None
     keys_word_white_list: List[str] = field(default_factory=list)
@@ -51,4 +55,7 @@ class AvitoConfig:
     use_own_cookies: bool = False
     parse_phone: bool = False
     proxy_notifier: str = None
+    proxy_rotation_limit: int = 15
+    proxy_rotation_cooldown: int = 10
+    max_pages: int = 0
 
