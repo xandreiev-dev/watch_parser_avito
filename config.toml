@@ -59,8 +59,8 @@ seller_black_list = []
 max_price = 99999999
 min_price = 0
 geo = ""
-proxy_string = ""
-proxy_change_url = ""
+proxy_string = "Uk5eZy:ApgAM8AG2At3@mproxy.site:14085"
+proxy_change_url = "https://changeip.mobileproxy.space/?proxy_key=a64ca89e7213f9d0a0fb3ec9e1e5a737"
 pause_general = 1
 pause_between_links = 4
 max_age = 0
