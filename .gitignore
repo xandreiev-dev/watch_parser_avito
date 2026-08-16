@@ -1,2 +1,25 @@
 # created by virtualenv automatically
 .secret.txt
+.env
+.env.*
+!.env.example
+
+# Python/runtime artifacts
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Parser output and local logs
+logs/
+logsout.txt
+result/
+*.log
+.~lock.*#
+
+# Local deployment bundles
+deploy/
+*.zip
+
+# Local databases
+*.db
