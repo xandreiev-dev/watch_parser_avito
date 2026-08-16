@@ -157,6 +157,49 @@ python parser_cls.py
 
 ---
 
+## Telegram-уведомления
+
+После каждого полного прогона парсер может отправлять короткий отчет в Telegram: магазин, время старта, длительность, количество объявлений, имена XLSX-файлов, разбивку по категориям `new` / `used` и короткую проверку качества ответа Avito (страницы, редиректы, пустой `catalog.items`).
+
+Настройки берутся из `.env` в корне проекта. Пример без секретов есть в `.env.example`:
+
+```env
+TELEGRAM_NOTIFICATIONS_ENABLED=false
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_CHAT_ID=
+TELEGRAM_TIMEOUT=10
+```
+
+Если `TELEGRAM_NOTIFICATIONS_ENABLED=false` или токен/chat id не заполнены, парсер работает как раньше и ничего не отправляет.
+
+Проверка отправки без запуска парсинга:
+
+```powershell
+$env:AVITO_TELEGRAM_TEST="true"; python parser_cls.py
+```
+
+Проверочный запуск с лимитом:
+
+```bash
+AVITO_TEST_FIRST_LINK=true AVITO_MAX_ADS=5 python parser_cls.py
+```
+
+В PowerShell:
+
+```powershell
+$env:AVITO_TEST_FIRST_LINK="true"; $env:AVITO_MAX_ADS="5"; python parser_cls.py
+```
+
+---
+
+## ML-поля для проверки фейков
+
+В XLSX-выгрузку добавляется поле `fake_grade`: текстовая оценка подозрительных формулировок в описании (`0`, `-1`, `-2`, `-3`). Поле не требует модели и БД.
+
+Поле `fake_proba` считается отдельной CatBoost-моделью после матчинга, когда уже известны `watch_id`, модель/бренд и доступна история цен из БД. Его нужно подключать в downstream matcher перед записью в `g_shop_watch.fake_proba`.
+
+---
+
 ## Важные моменты
 
 ### Защита от 429

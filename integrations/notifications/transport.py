@@ -1,6 +1,6 @@
-"""
-Клиент для уведомлений, для парсера есть свой отдельный
-"""
+"""Retry-транспорт для внешних уведомлений."""
+
+import re
 import time
 from typing import Callable
 
@@ -8,6 +8,13 @@ import requests
 from loguru import logger
 
 RETRY_STATUS_CODES = {429, 500, 502, 503, 504}
+
+
+def _sanitize_request_error(error: Exception) -> str:
+    text = str(error)
+    text = re.sub(r"/bot[^/\s]+/", "/bot<hidden>/", text)
+    text = re.sub(r"([?&](?:access_token|token|key)=)[^&\s]+", r"\1<hidden>", text, flags=re.I)
+    return text
 
 
 def send_with_retries(
@@ -34,9 +41,10 @@ def send_with_retries(
             response.raise_for_status()
             return response
 
-        except requests.RequestException as e:
+        except requests.RequestException as err:
             logger.warning(
-                f"[notify retry] attempt {attempt}/{retries}: {e}"
+                f"[notify retry] attempt {attempt}/{retries}: "
+                f"{err.__class__.__name__}: {_sanitize_request_error(err)}"
             )
 
             if attempt >= retries:
