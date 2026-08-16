@@ -1,32 +1,52 @@
+import asyncio
 import json
+import os
 import random
+import sys
 import re
 import time
+from dataclasses import dataclass
 from datetime import datetime, timedelta
-from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+from pathlib import Path
+from urllib.parse import urljoin, urlparse, parse_qs, urlencode, urlunparse
 
 from bs4 import BeautifulSoup
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from dotenv import load_dotenv
 from loguru import logger
 from pydantic import ValidationError
 
 from common_data import HEADERS
-from db_service import SQLiteDBHandler
 from dto import Proxy, AvitoConfig
 from filters.ads_filter import AdsFilter
 from hide_private_data import log_config
 from integrations.notifications.factory import build_notifier
+from integrations.run_notifications import TelegramRunNotifier, format_run_error, format_run_report
 from load_config import load_avito_config
 from models import ItemsResponse, Item
 from parser.cookies.factory import build_cookies_provider
-from parser.export.factory import build_result_storage
+from parser.export.excel import ExcelStorage
 from parser.http.client import HttpClient
 from parser.proxies.proxy_factory import build_proxy
+from utils.ftp_upload import send_file_to_ftp
 from utils.parse_phone import ParsePhone
-from version import VERSION
+
 
 DEBUG_MODE = False
 
+Path("logs").mkdir(parents=True, exist_ok=True)
 logger.add("logs/app.log", rotation="5 MB", retention="5 days", level="DEBUG")
+
+
+@dataclass
+class BatchRunResult:
+    batch_name: str
+    ads_count: int
+    files: list[Path]
+    pages_parsed: int = 0
+    redirects_count: int = 0
+    empty_catalog_pages: int = 0
+    links_total: int = 0
 
 
 class AvitoParse:
@@ -39,7 +59,6 @@ class AvitoParse:
         self.config = config
         self.proxy = build_proxy(self.config)
         self.cookies_provider = build_cookies_provider(config=config)
-        self.db_handler = SQLiteDBHandler()
         self.notifier = build_notifier(config=config)
         self.result_storage = None
         self.stop_event = stop_event
@@ -53,8 +72,8 @@ class AvitoParse:
             timeout=20,
             max_retries=self.config.max_count_of_retry,
         )
-        self.ads_filter = AdsFilter(config=config, is_viewed_fn=self.is_viewed)
-        log_config(config=self.config, version=VERSION)
+        self.ads_filter = AdsFilter(config=config)
+        log_config(self.config, version=os.environ.get("APP_VERSION") or None)
 
 
     def get_proxy_obj(self) -> Proxy | None:
@@ -113,11 +132,37 @@ class AvitoParse:
             return False
         
 
-    def parse_urls(self, urls, batch_name: str):
-        """Парсит список ссылок и сохраняет результат в отдельный итоговый файл."""
-        all_ads = []
+    @staticmethod
+    def _watch_xlsx_suffix(batch_name: str) -> str:
+        """Возвращает стабильный суффикс итогового XLSX."""
+        return "new" if batch_name == "new" else "old"
 
-        for url in urls:
+    def parse_urls(self, urls, batch_name: str) -> BatchRunResult:
+        """Парсит batch ссылок и сохраняет объявления в итоговый XLSX."""
+        run_date = datetime.now().strftime("%Y-%m-%d")
+        file_suffix = self._watch_xlsx_suffix(batch_name)
+        out_dir = Path(self.config.output_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        all_ads = []
+        output_files: list[Path] = []
+        batch_storage: ExcelStorage | None = None
+        batch_file_path: Path | None = None
+        batch_ads_collected = 0
+        pages_parsed = 0
+        redirects_count = 0
+        empty_catalog_pages = 0
+
+        if self.config.save_xlsx and not self.config.one_file_for_link:
+            batch_file_path = out_dir / f"avito_watch_{run_date}_{file_suffix}.xlsx"
+            if batch_file_path.exists():
+                batch_file_path.unlink()
+            batch_storage = ExcelStorage(batch_file_path)
+            output_files.append(batch_file_path)
+            logger.info(f"Итоговый файл batch (с промежуточными сохранениями): {batch_file_path.name}")
+
+        for link_index, url in enumerate(urls):
+            limit_reached = False
             self.reset_http_client()
             logger.info(f"Начинаю парсинг ссылки ({batch_name}): {url}")
 
@@ -128,11 +173,29 @@ class AvitoParse:
             page_num = 1
             current_url = url
 
+            link_storage: ExcelStorage | None = None
+            link_file_path: Path | None = None
+            if self.config.save_xlsx and self.config.one_file_for_link:
+                link_file_path = out_dir / f"avito_watch_{run_date}_{file_suffix}_link{link_index + 1}.xlsx"
+                if link_file_path.exists():
+                    link_file_path.unlink()
+                link_storage = ExcelStorage(link_file_path)
+                output_files.append(link_file_path)
+                logger.info(f"Файл по ссылке {link_index + 1}: {link_file_path.name}")
+
             while True:
                 logger.info(f"[{batch_name}] page={page_num} url={current_url}")
 
                 if self.stop_event and self.stop_event.is_set():
-                    return
+                    return BatchRunResult(
+                        batch_name=batch_name,
+                        ads_count=len(all_ads) + len(ads_in_link),
+                        files=output_files,
+                        pages_parsed=pages_parsed,
+                        redirects_count=redirects_count,
+                        empty_catalog_pages=empty_catalog_pages,
+                        links_total=len(urls),
+                    )
 
                 if DEBUG_MODE:
                     html_code = open("may.txt", "r", encoding="utf-8").read()
@@ -165,9 +228,19 @@ class AvitoParse:
                 failed_html_attempts = 0
 
                 data_from_page = self.find_json_on_page(html_code=html_code)
+                redirect_url = self._get_redirect_url(data_from_page)
+                if redirect_url:
+                    next_url = self._resolve_avito_url(redirect_url)
+                    if next_url and next_url != current_url:
+                        redirects_count += 1
+                        logger.info(f"Avito перенаправил выдачу, перехожу на: {next_url}")
+                        current_url = next_url
+                        continue
+
                 catalog = data_from_page.get("catalog") or {}
 
                 if not catalog or "items" not in catalog:
+                    empty_catalog_pages += 1
                     logger.warning(
                         f"На странице {current_url} отсутствует catalog.items, заканчиваю работу с данной ссылкой"
                     )
@@ -181,6 +254,7 @@ class AvitoParse:
                     )
                     break
 
+                pages_parsed += 1
                 ads = self._clean_null_ads(ads=ads_models.items)
                 logger.info(f"Объявлений до фильтров: {len(ads)}")
 
@@ -201,11 +275,19 @@ class AvitoParse:
                 filter_ads = self.filter_ads(ads=ads)
                 logger.info(f"После фильтров: {len(filter_ads)}")
 
-                unique_ads = []
-                for ad in filter_ads:
-                    if ad.id not in seen_ad_ids:
-                        seen_ad_ids.add(ad.id)
-                        unique_ads.append(ad)
+                candidates = [ad for ad in filter_ads if ad.id not in seen_ad_ids]
+                lim = self.config.max_ads_per_batch
+                if lim > 0:
+                    room = lim - batch_ads_collected
+                    if room <= 0:
+                        logger.info(f"Достигнут лимит объявлений в batch ({lim}), завершаю ссылку")
+                        limit_reached = True
+                        break
+                    candidates = candidates[:room]
+
+                for ad in candidates:
+                    seen_ad_ids.add(ad.id)
+                unique_ads = candidates
 
                 logger.info(f"Новых объявлений на странице: {len(unique_ads)}")
 
@@ -214,6 +296,29 @@ class AvitoParse:
                     break
 
                 ads_in_link.extend(unique_ads)
+                batch_ads_collected += len(unique_ads)
+
+                if self.config.save_xlsx and unique_ads:
+                    try:
+                        if self.config.one_file_for_link and link_storage:
+                            link_storage.save(unique_ads)
+                        elif batch_storage:
+                            batch_storage.save(unique_ads)
+                        logger.info(
+                            f"Сохранено в xlsx объявлений с страницы: {len(unique_ads)}"
+                        )
+                    except Exception as err:
+                        logger.error(f"Ошибка промежуточного сохранения в xlsx: {err}")
+
+                if limit_reached or (lim > 0 and batch_ads_collected >= lim):
+                    logger.info(f"Лимит batch ({lim}) набран, дальше не иду")
+                    limit_reached = True
+                    break
+
+                page_limit = self._get_page_limit()
+                if page_limit and page_num >= page_limit:
+                    logger.info(f"Достигнут лимит страниц для ссылки ({page_limit}), заканчиваю работу с данной ссылкой")
+                    break
 
                 if not self.has_next_page(html_code, page_num):
                     logger.info("Следующей страницы в пагинации нет, заканчиваю работу с данной ссылкой")
@@ -235,47 +340,86 @@ class AvitoParse:
             logger.info("Пауза перед следующей ссылкой 8 сек.")
             time.sleep(8)
 
-            if self.config.one_file_for_link and ads_in_link:
-                try:
-                    result_storage = build_result_storage(config=self.config, url=url)
-                    result_storage.save(ads_in_link)
-                    logger.info(f"Сохранил файл по ссылке: {url}")
-                except Exception as err:
-                    logger.error(f"Ошибка при сохранении результата по ссылке {url}: {err}")
+            if self.config.save_xlsx and self.config.one_file_for_link and link_file_path and link_file_path.exists():
+                send_file_to_ftp(link_file_path, self.notifier)
 
             all_ads.extend(ads_in_link)
 
+            if limit_reached:
+                break
+
         logger.info(f"Всего собрано объявлений в batch '{batch_name}': {len(all_ads)}")
+        logger.info(
+            f"Диагностика batch '{batch_name}': pages={pages_parsed}, "
+            f"redirects={redirects_count}, empty_catalog_pages={empty_catalog_pages}"
+        )
 
-        if not self.config.one_file_for_link and all_ads:
-            try:
-                result_storage = build_result_storage(config=self.config, batch_name=batch_name)
+        if self.config.save_xlsx and not self.config.one_file_for_link and batch_file_path and batch_file_path.exists():
+            send_file_to_ftp(batch_file_path, self.notifier)
 
-                if hasattr(result_storage, "file_path"):
-                    original_path = result_storage.file_path
-                    parent = original_path.parent
-                    batch_file_path = parent / f"Avito_ru_{batch_name}.xlsx"
+        return BatchRunResult(
+            batch_name=batch_name,
+            ads_count=len(all_ads),
+            files=output_files,
+            pages_parsed=pages_parsed,
+            redirects_count=redirects_count,
+            empty_catalog_pages=empty_catalog_pages,
+            links_total=len(urls),
+        )
 
-                    result_storage.file_path = batch_file_path
-
-                    if result_storage.file_path.exists():
-                        result_storage.file_path.unlink()
-
-                    result_storage._create_file()
-
-                result_storage.save(all_ads)
-                logger.info(f"Сохранил итоговый файл: Avito_ru_{batch_name}.xlsx")
-            except Exception as err:
-                logger.error(f"Ошибка при сохранении общего результата ({batch_name}): {err}")
-
-
-    def parse(self):
+    def parse(self) -> list[BatchRunResult]:
         """Запускает два отдельных прогона: для новых и для б/у устройств."""
-        logger.info("=== Начинаю batch: NEW ===")
-        self.parse_urls(self.config.new_urls, "new")
+        started_at = datetime.now()
+        run_notifier = TelegramRunNotifier.from_env()
+        results: list[BatchRunResult] = []
 
-        logger.info("=== Начинаю batch: USED ===")
-        self.parse_urls(self.config.used_urls, "used")
+        try:
+            logger.info("=== Начинаю batch: NEW ===")
+            results.append(self.parse_urls(self.config.new_urls, "new"))
+
+            logger.info("=== Начинаю batch: USED ===")
+            results.append(self.parse_urls(self.config.used_urls, "used"))
+        except Exception as err:
+            run_notifier.send_message(
+                format_run_error(
+                    started_at=started_at,
+                    finished_at=datetime.now(),
+                    error=err,
+                )
+            )
+            raise
+
+        files = [file_path for result in results for file_path in result.files]
+        category_counts = {result.batch_name: result.ads_count for result in results}
+        rows = sum(result.ads_count for result in results)
+        diagnostics = {
+            "pages": sum(result.pages_parsed for result in results),
+            "redirects": sum(result.redirects_count for result in results),
+            "empty_catalog_pages": sum(result.empty_catalog_pages for result in results),
+        }
+        warnings = []
+        if rows == 0:
+            warnings.append("объявления не собраны")
+        for result in results:
+            if result.links_total > 0 and result.ads_count == 0:
+                warnings.append(f"batch {result.batch_name}: 0 объявлений")
+        if diagnostics["empty_catalog_pages"] > 0:
+            warnings.append(
+                f"Avito отдал страниц без catalog.items: {diagnostics['empty_catalog_pages']}"
+            )
+
+        run_notifier.send_message(
+            format_run_report(
+                started_at=started_at,
+                finished_at=datetime.now(),
+                rows=rows,
+                files=files,
+                category_counts=category_counts,
+                diagnostics=diagnostics,
+                warnings=warnings,
+            )
+        )
+        return results
 
     @staticmethod
     def _extract_delivery_text(ad: Item) -> str | None:
@@ -324,6 +468,22 @@ class AvitoParse:
     def _clean_null_ads(ads: list[Item]) -> list[Item]:
         """Удаляет объявления без id."""
         return [ad for ad in ads if ad.id]
+
+    @staticmethod
+    def _get_redirect_url(data_from_page: dict) -> str | None:
+        """Возвращает URL фронтенд-редиректа Avito, если страница просит перейти."""
+        if data_from_page.get("redirected") is True and data_from_page.get("url"):
+            return str(data_from_page["url"])
+        return None
+
+    @staticmethod
+    def _resolve_avito_url(url: str) -> str:
+        """Приводит относительный Avito URL к абсолютному."""
+        return urljoin("https://www.avito.ru", url)
+
+    def _get_page_limit(self) -> int:
+        """Возвращает лимит страниц на ссылку из настроек."""
+        return int(self.config.max_pages or self.config.count or 0)
 
     @staticmethod
     def find_json_on_page(html_code, data_type: str = "mime") -> dict:
@@ -393,8 +553,7 @@ class AvitoParse:
         return ads
 
     def parse_phone(self, ads: list[Item]) -> list[Item]:
-        if not self.config.parse_phone or self.config.parse_phone:
-            # future feat
+        if not self.config.parse_phone:
             return ads
 
         try:
@@ -423,22 +582,11 @@ class AvitoParse:
             return match.group(1)
         return None
 
-    def is_viewed(self, ad: Item) -> bool:
-        """Проверяет, есть ли уже такое объявление в локальной БД."""
-        return self.db_handler.record_exists(record_id=ad.id, price=ad.priceDetailed.value)
-
     @staticmethod
     def _is_recent(timestamp_ms: int, max_age_seconds: int) -> bool:
         now = datetime.utcnow()
         published_time = datetime.utcfromtimestamp(timestamp_ms / 1000)
         return (now - published_time) <= timedelta(seconds=max_age_seconds)
-
-    def __save_viewed(self, ads: list[Item]) -> None:
-        """Сохраняет просмотренные объявления"""
-        try:
-            self.db_handler.add_record_from_page(ads=ads)
-        except Exception as err:
-            logger.info(f"При сохранении в БД ошибка {err}")
 
     def get_next_page_url(self, url: str):
         """Получает следующую страницу"""
@@ -458,23 +606,88 @@ class AvitoParse:
             logger.error(f"Не смог сформировать ссылку на следующую страницу для {url}. Ошибка: {err}")
 
 
-if __name__ == "__main__":
+def _env_flag(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def resume_unfinished_parsing() -> None:
+    """Сохранение промежуточного состояния парсинга в проекте не ведётся — точка расширения."""
+    logger.info("resume_unfinished_parsing: незавершённых прогонов для возобновления нет")
+
+
+def show_status() -> None:
+    logger.info("Планировщик: работает (тик каждые 5 мин)")
+
+
+def main() -> None:
+    load_dotenv()
+
     try:
         config = load_avito_config("config.toml")
     except Exception as err:
         logger.error(f"Ошибка загрузки конфига: {err}")
-        exit(1)
+        return
 
-    while True:
+    logger.info("Запуск планировщика Авито парсера (каждый день в 9:00)")
+    logger.info("Проверка незавершенных парсингов при запуске")
+    resume_unfinished_parsing()
+
+    try:
+        parser = AvitoParse(config)
+        parser.parse()
+        if config.one_time_start:
+            logger.info("Парсинг завершен т.к. включён one_time_start в настройках")
+            return
+        logger.info("Парсинг завершен.")
+    except Exception as err:
+        logger.exception(err)
+
+
+async def run_scheduler() -> None:
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(main, "interval", hours=24, start_date=datetime.now().replace(hour=9, minute=0, second=0, microsecond=0), misfire_grace_time=None)
+    scheduler.add_job(show_status, "interval", minutes=5, misfire_grace_time=None)
+    scheduler.start()
+    await asyncio.Event().wait()
+
+
+if __name__ == "__main__":
+    load_dotenv()
+
+    if _env_flag("AVITO_TELEGRAM_TEST"):
+        sent = TelegramRunNotifier.from_env().send_message(
+            "Avito Watch Parser\nТестовое Telegram-уведомление успешно отправлено."
+        )
+        if sent:
+            logger.info("Тестовое Telegram-уведомление отправлено")
+        else:
+            logger.warning("Тестовое Telegram-уведомление не отправлено")
+        sys.exit(0)
+
+    # Короткий локальный прогон: первая ссылка new_urls, лимит объявлений и выход.
+    if _env_flag("AVITO_TEST_FIRST_LINK"):
+        config = load_avito_config("config.toml")
+        if not config.new_urls:
+            logger.error("В config.toml нет new_urls — тест невозможен")
+            sys.exit(1)
+        config.new_urls = [config.new_urls[0]]
+        config.used_urls = []
+        config.max_ads_per_batch = int(os.environ.get("AVITO_MAX_ADS", "50"))
+        config.one_time_start = True
+        if output_dir := os.environ.get("AVITO_OUTPUT_DIR"):
+            config.output_dir = Path(output_dir)
+        logger.info(
+            f"Режим теста: первая ссылка из new_urls, лимит {config.max_ads_per_batch} объявлений"
+        )
         try:
-            parser = AvitoParse(config)
-            parser.parse()
-            if config.one_time_start:
-                logger.info("Парсинг завершен т.к. включён one_time_start в настройках")
-                break
-            logger.info(f"Парсинг завершен. Пауза {config.pause_general} сек")
-            time.sleep(config.pause_general)
+            AvitoParse(config).parse()
         except Exception as err:
             logger.exception(err)
-            logger.error(f"Произошла ошибка {err}. Будет повторный запуск через 30 сек.")
-            time.sleep(30)
+            sys.exit(1)
+        logger.info("Тестовый прогон завершён.")
+        sys.exit(0)
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.create_task(run_scheduler())
+    loop.run_forever()

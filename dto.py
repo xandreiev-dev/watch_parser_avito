@@ -58,4 +58,5 @@ class AvitoConfig:
     proxy_rotation_limit: int = 15
     proxy_rotation_cooldown: int = 10
     max_pages: int = 0
+    max_ads_per_batch: int = 0  # 0 = без лимита; иначе максимум объявлений за один batch parse_urls
 
