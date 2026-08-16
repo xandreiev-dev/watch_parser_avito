@@ -17,6 +17,7 @@ from utils.watch_fields import (
     extract_warranty,
     normalize_url,
 )
+from utils.fake_grade import fake_grade_for_text
 
 
 class ExcelStorage(ResultStorage):
@@ -39,6 +40,7 @@ class ExcelStorage(ResultStorage):
         "Звезды",
         "Отзывы",
         "Доставка",
+        "fake_grade",
     ]
 
     def __init__(self, file_path: Path):
@@ -50,6 +52,9 @@ class ExcelStorage(ResultStorage):
 
         if not self.file_path.exists():
             self._create_file()
+
+        self._workbook = load_workbook(self.file_path)
+        self._sheet = self._workbook.active
 
     def _create_file(self) -> None:
         workbook = Workbook()
@@ -101,9 +106,6 @@ class ExcelStorage(ResultStorage):
             return
 
         with self._lock:
-            workbook = load_workbook(self.file_path)
-            sheet = workbook.active
-
             for ad in ads:
                 images_urls = [
                     self._get_largest_image_url(img)
@@ -145,8 +147,9 @@ class ExcelStorage(ResultStorage):
                     ad.rating.get("score") if ad.rating else "",
                     ad.rating.get("summary") if ad.rating else "",  
                     self.excel_safe(ad.delivery if getattr(ad, "delivery", None) else ""),
+                    fake_grade_for_text(description),
                 ]
 
-                sheet.append(row)
+                self._sheet.append(row)
 
-            workbook.save(self.file_path)
+            self._workbook.save(self.file_path)
